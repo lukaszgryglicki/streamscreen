@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image/png"
 	"os"
 	"strconv"
 	"time"
@@ -82,6 +83,41 @@ func streamScreen() error {
 	bounds.Max.X = w
 	bounds.Max.Y = h
 	fmt.Printf("Bounds: %+v\n", bounds)
+	// PNG Quality
+	pngqStr := os.Getenv("PQ")
+	pngq := png.BestSpeed
+	if pngqStr != "" {
+		v, err := strconv.Atoi(pngqStr)
+		if err != nil {
+			return err
+		}
+		if v < 0 || v > 3 {
+			return fmt.Errorf("PQ must be from 0-3 range")
+		}
+		pngq = png.CompressionLevel(-v)
+	}
+	img, err := screenshot.CaptureRect(bounds)
+	if err != nil {
+		return err
+	}
+	ss := os.Getenv("SS")
+	if ss != "" {
+		fn := fmt.Sprintf("%d.png", time.Now().UnixNano())
+		file, err := os.Create(fn)
+		if err != nil {
+			return err
+		}
+		enc := png.Encoder{CompressionLevel: pngq}
+		ierr := enc.Encode(file, img)
+		if ierr != nil {
+			_ = file.Close()
+			return ierr
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
