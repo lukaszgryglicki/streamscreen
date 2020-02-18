@@ -100,23 +100,51 @@ func streamScreen() error {
 	if err != nil {
 		return err
 	}
-	ss := os.Getenv("SS")
-	if ss != "" {
+	sshotFunc := func() (string, error) {
 		fn := fmt.Sprintf("%d.png", time.Now().UnixNano())
 		file, err := os.Create(fn)
 		if err != nil {
-			return err
+			return "", err
 		}
 		enc := png.Encoder{CompressionLevel: pngq}
 		ierr := enc.Encode(file, img)
 		if ierr != nil {
 			_ = file.Close()
-			return ierr
+			return "", ierr
 		}
 		err = file.Close()
 		if err != nil {
+			return "", err
+		}
+		return fn, nil
+	}
+	ss := os.Getenv("SS")
+	if ss != "" {
+		fn, err := sshotFunc()
+		if err != nil {
 			return err
 		}
+		fmt.Printf("SS saved to %s\n", fn)
+	}
+	sv := os.Getenv("SV")
+	if sv != "" {
+		// FIXME: handle CTRL+c
+		sss := []string{}
+		dtStart := time.Now()
+		for i := 0; i < 100; i++ {
+			fn, err := sshotFunc()
+			if err != nil {
+				return err
+			}
+			sss = append(sss, fn)
+			// FIXME: handle FPS (or unlimited)
+		}
+		// FIXME: handle calculate actual FPS
+		// FIXME: handle encode pngs as mp4 and remove them
+		dtEnd := time.Now()
+		us := dtEnd.Sub(dtStart).Nanoseconds()
+		fmt.Printf("Took: %d us\n", us)
+		fmt.Printf("SV saved to %+v\n", sss)
 	}
 	return nil
 }
