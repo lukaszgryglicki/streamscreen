@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"image/png"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/kbinani/screenshot"
@@ -128,7 +130,20 @@ func streamScreen() error {
 	}
 	sv := os.Getenv("SV")
 	if sv != "" {
-		// FIXME: handle CTRL+c
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT)
+		signalled := false
+		go func() {
+			for {
+				<-sigs
+				if !signalled {
+					signalled = true
+				} else {
+					fmt.Printf("Another signal, exiting\n")
+					os.Exit(1)
+				}
+			}
+		}()
 		sss := []string{}
 		dtStart := time.Now()
 		nFrames := 0
@@ -175,6 +190,10 @@ func streamScreen() error {
 			if nFrames > 0 && f >= nFrames {
 				break
 			}
+			if signalled {
+				fmt.Printf("Signalled, creating the final video\n")
+				break
+			}
 			if fps > 0.0 {
 				dtt = time.Now()
 				us := float64(dtt.Sub(dtf).Nanoseconds())
@@ -190,7 +209,7 @@ func streamScreen() error {
 		dtEnd := time.Now()
 		secs := float64(dtEnd.Sub(dtStart).Nanoseconds()) / float64(1e9)
 		afps := float64(n) / float64(secs)
-		fmt.Printf("Took: %.3fs, actual FPS: %f\n", secs, afps)
+		fmt.Printf("Took: %.3fs, actual FPS: %f, saved PNGs: %d\n", secs, afps, len(sss))
 		// fmt.Printf("SV saved to %+v\n", sss)
 	}
 	return nil
