@@ -131,20 +131,67 @@ func streamScreen() error {
 		// FIXME: handle CTRL+c
 		sss := []string{}
 		dtStart := time.Now()
-		for i := 0; i < 100; i++ {
+		nFrames := 0
+		str := os.Getenv("F")
+		if str != "" {
+			v, err := strconv.Atoi(str)
+			if err != nil {
+				return err
+			}
+			if v >= 0 {
+				nFrames = v
+			}
+		}
+		fps := 0.0
+		str = os.Getenv("FPS")
+		if str != "" {
+			v, err := strconv.ParseFloat(str, 64)
+			if err != nil {
+				return err
+			}
+			if v >= 0.0 {
+				fps = v
+			}
+		}
+		fpsn := 0.0
+		if fps > 0.0 {
+			fpsn = float64(1e9) / fps
+		}
+		f := 0
+		var (
+			dtf time.Time
+			dtt time.Time
+		)
+		for {
+			if fps > 0.0 {
+				dtf = time.Now()
+			}
 			fn, err := sshotFunc()
 			if err != nil {
 				return err
 			}
 			sss = append(sss, fn)
-			// FIXME: handle FPS (or unlimited)
+			f++
+			if nFrames > 0 && f >= nFrames {
+				break
+			}
+			if fps > 0.0 {
+				dtt = time.Now()
+				us := float64(dtt.Sub(dtf).Nanoseconds())
+				if us < fpsn {
+					nano := fpsn - us
+					// fmt.Printf("Should wait %.3fms\n", nano/float64(1e6))
+					time.Sleep(time.Duration(nano) * time.Nanosecond)
+				}
+			}
 		}
-		// FIXME: handle calculate actual FPS
+		n := len(sss)
 		// FIXME: handle encode pngs as mp4 and remove them
 		dtEnd := time.Now()
-		us := dtEnd.Sub(dtStart).Nanoseconds()
-		fmt.Printf("Took: %d us\n", us)
-		fmt.Printf("SV saved to %+v\n", sss)
+		secs := float64(dtEnd.Sub(dtStart).Nanoseconds()) / float64(1e9)
+		afps := float64(n) / float64(secs)
+		fmt.Printf("Took: %.3fs, actual FPS: %f\n", secs, afps)
+		// fmt.Printf("SV saved to %+v\n", sss)
 	}
 	return nil
 }
